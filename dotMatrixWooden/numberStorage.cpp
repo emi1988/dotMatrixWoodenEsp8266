@@ -36,7 +36,7 @@ void numberStorage::rotateFont90()
 		int bitMask = 4;
 		int bitShift = 2;	
 
-		m_printer->println("rotate number 90: " + String(i));
+		//m_printer->println("rotate number 90: " + String(i));
 
 		for (int j = 0; j < 3; j++)
 		{
@@ -48,7 +48,7 @@ void numberStorage::rotateFont90()
 				
 				currentNumberBinary = currentNumberBinary + String(currentBinaryValue);
 
-				m_printer->println(currentNumberBinary);				
+				//m_printer->println(currentNumberBinary);				
 			}
 
 			bitMask = bitMask >> 1;			
@@ -56,8 +56,8 @@ void numberStorage::rotateFont90()
 			char *charNumberArray = &currentNumberBinary[0];
 			int currentLineAsInt = readBinaryString(charNumberArray);
 
-			m_printer->println("currentLineAsBinary:");
-			m_printer->println(currentNumberBinary);
+			//m_printer->println("currentLineAsBinary:");
+			//m_printer->println(currentNumberBinary);
 
 			m_numberArrayRot90[i][bitShift] = currentLineAsInt;
 
@@ -73,7 +73,7 @@ void numberStorage::rotateFont180()
 		int bitMask = 16;
 		int bitShift = 4;
 
-		m_printer->println("rotate number 180: " + String(i));
+		//m_printer->println("rotate number 180: " + String(i));
 
 		for (int j = 0; j < 5; j++)
 		{
@@ -85,7 +85,7 @@ void numberStorage::rotateFont180()
 
 				currentNumberBinary = currentNumberBinary + String(currentBinaryValue);
 
-				m_printer->println(currentNumberBinary);
+				//m_printer->println(currentNumberBinary);
 			}
 
 			bitMask = bitMask >> 1;
@@ -93,8 +93,8 @@ void numberStorage::rotateFont180()
 			char *charNumberArray = &currentNumberBinary[0];
 			int currentLineAsInt = readBinaryString(charNumberArray);
 
-			m_printer->println("currentLineBinary:");
-			m_printer->println(currentNumberBinary);
+			//m_printer->println("currentLineBinary:");
+			//m_printer->println(currentNumberBinary);
 
 			m_numberArrayRot180[i][bitShift] = currentLineAsInt;
 
@@ -185,7 +185,7 @@ int * numberStorage::getNumber(int number, int rotateAngle)
 	{
 		static int outputArray[5];
 
-		m_printer->println("get number with angle 0");
+		//m_printer->println("get number with angle 0");
 
 		for (int i = 0; i < 5; i++)
 		{
@@ -197,7 +197,7 @@ int * numberStorage::getNumber(int number, int rotateAngle)
 	{
 		static int outputArray[3];
 
-		m_printer->println("get number with angle 90");
+		//m_printer->println("get number with angle 90");
 
 		for (int i = 0; i < 3; i++)
 		{
@@ -209,7 +209,7 @@ int * numberStorage::getNumber(int number, int rotateAngle)
 	{
 		static int outputArray[5];
 
-		m_printer->println("get number with angle 180");
+		//m_printer->println("get number with angle 180");
 
 		for (int i = 0; i < 5; i++)
 		{

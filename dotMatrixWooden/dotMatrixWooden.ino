@@ -2,7 +2,6 @@
 #include "LedMatrix.h"
 #include "numberStorage.h"
 
-
 #include <Arduino.h>
 
 #include <ESP8266WiFi.h>
@@ -10,11 +9,19 @@
 #include <WiFiClient.h>
 #include <Adafruit_BMP085_U.h>
 #include <TimeLib.h>
+#include <WiFiUdp.h>
 
 
 //WIFI-AccesDefinition
 const char* ssid = "kartoffelsalat";
 const char* password = "dosenfutterdosenfutter";
+
+// NTP Servers:
+IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+const int timeZone = 1;     // Central European Time
+
+WiFiUDP Udp;
+unsigned int localPort = 8888;  // local port to listen for UDP packets
 
 //const char* ssid = "ASUS";
 //const char* password = "5220468835767";
@@ -30,6 +37,9 @@ String m_month;
 int m_year;
 int m_hour;
 int m_minute;
+
+
+bool preassureSensorAviable = false;
 
 int m_oldFinalArray[4][8];
 
@@ -72,6 +82,7 @@ void setup() {
 
 	setupBmp180();
 
+	setupNTPSync();
 	
 }
 
@@ -87,20 +98,18 @@ void setupWifi()
 	Serial.print("\nWifi begin:" + retCode);
 
 
-	// (WiFi.status() != WL_CONNECTED) 
-	//{
-	delay(500);
+	while (WiFi.status() != WL_CONNECTED) {
+		delay(500);
+		Serial.print(".");
+	}
+
+	Serial.print("IP address assigned by DHCP: ");
+	Serial.println(WiFi.localIP());
 
 	//Serial.print(".");
 	Serial.print("\nWiFi-Status: ");
 	Serial.print(WiFi.status());
-	Serial.print("\nWiFi connected, IP address: ");
-	Serial.println(WiFi.localIP());
-	//}
-	Serial.print("\nWiFi connected, IP address: ");
-	Serial.println(WiFi.localIP());
-
-
+	
 }
 
 int setupBmp180()
@@ -115,7 +124,19 @@ int setupBmp180()
 
 		return -1;
 	}
+	preassureSensorAviable = true;
 	return 0;
+}
+
+void setupNTPSync()
+{
+
+	Serial.println("Starting UDP");
+	Udp.begin(localPort);
+	Serial.print("Local port: ");
+	Serial.println(Udp.localPort());
+	Serial.println("waiting for sync");
+	setSyncProvider(getNtpTime);
 }
 
 float readPreassureFromSensor()
@@ -133,6 +154,7 @@ float readPreassureFromSensor()
 	return  preassure;
 }
 
+/*
 void syncTimeFromWeb()
 {
 	WiFiClient client;
@@ -222,6 +244,8 @@ void syncTimeFromWeb()
 	}
 
 }
+
+*/
 
 void displayNumber(int number, int device, int horShift1, int vertShift1, int horShift2, int vertShift2, bool fillZeroes, int AddArray[8], bool animation)
 {
@@ -397,81 +421,6 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 		break;
 	}
 
-	/*
-
-	int finalArray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	//int firstArray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	//int secondArray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-	if (number < 9 & fillZeroes == false)
-	{
-	numberAsArray = m_numberStorage.getNumber(number, degree);
-
-	for (int i = 0; i < 5; i++)
-	{
-	finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
-	}
-	}
-	else
-	{
-	String numberString = String(number);
-	String firstPart, secondPart;
-
-	if (degree == 0)
-	{
-	//check if we have to add a leading zero
-	if (number < 9)
-	{
-	firstPart = "0";
-	}
-	else
-	{
-	firstPart = numberString.substring(0, 1);
-	Serial.println("\nnumber first: ");
-	Serial.println(firstPart);
-	}
-
-
-	secondPart = numberString.substring(1, 2);
-	Serial.println("\nnumber last: ");
-	Serial.println(secondPart);
-	}
-	else if (degree == 180)
-	{
-	//check if we have to add a leading zero
-	if (number < 9)
-	{
-	firstPart = "0";
-	}
-	else
-	{
-	firstPart = numberString.substring(1, 2);
-	Serial.println("\nnumber first: ");
-	Serial.println(firstPart);
-	}
-
-	secondPart = numberString.substring(0, 1);
-	Serial.println("\nnumber last: ");
-	Serial.println(secondPart);
-	}
-
-
-	numberAsArray = m_numberStorage.getNumber(firstPart.toInt(), degree);
-	for (int i = 0; i < 5; i++)
-	{
-	finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
-	}
-
-
-
-	numberAsArray = m_numberStorage.getNumber(secondPart.toInt(), degree);
-	for (int i = 0; i < 5; i++)
-	{
-	finalArray[i + (vertShiftAdd - vertShift2)] += numberAsArray[i] << (horShiftAdd - horShift2);
-	}
-
-	}
-	*/
 
 	if (AddArray != NULL)
 	{
@@ -594,27 +543,97 @@ void writePreassureToDatabase(float preassure)
 {
 	Serial.println("\ntry to write preassure to the database");
 	
-	HTTPClient http;
-	http.begin("http://web568.lenny.servertools24.de/ledMatrixWooden/preassureReceive.php");
-	http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-	String htmlPostString;
-	
-	htmlPostString.concat("timeStamp=42&preassure=");
-	htmlPostString.concat(String(preassure));
-	
-	http.POST(htmlPostString);
-	http.writeToStream(&Serial);
-	http.end();
+	//first check if time was already set
+	if (timeStatus() != timeNotSet)
+	{
+		HTTPClient http;
+		http.begin("http://web568.lenny.servertools24.de/ledMatrixWooden/preassureReceive.php");
+		http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+		String htmlPostString;
+		
+		htmlPostString.concat("timeStamp=");
+		htmlPostString.concat(now());
+		htmlPostString.concat("&preassure=");
+		htmlPostString.concat(String(preassure));
+
+		http.POST(htmlPostString);
+		http.writeToStream(&Serial);
+		http.end();
+	}
+	else
+	{
+		Serial.println("\ndid not write to database, because time was not snced yet");
+
+	}
 }
 
+/*-------- NTP code ----------*/
+
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+time_t getNtpTime()
+{
+	while (Udp.parsePacket() > 0); // discard any previously received packets
+	Serial.println("Transmit NTP Request");
+	sendNTPpacket(timeServer);
+	uint32_t beginWait = millis();
+	while (millis() - beginWait < 1500) {
+		int size = Udp.parsePacket();
+		if (size >= NTP_PACKET_SIZE) {
+			Serial.println("Receive NTP Response");
+			Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+			unsigned long secsSince1900;
+			// convert four bytes starting at location 40 to a long integer
+			secsSince1900 = (unsigned long)packetBuffer[40] << 24;
+			secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+			secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+			secsSince1900 |= (unsigned long)packetBuffer[43];
+			return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+		}
+	}
+	Serial.println("No NTP Response :-(");
+	return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address)
+{
+	// set all bytes in the buffer to 0
+	memset(packetBuffer, 0, NTP_PACKET_SIZE);
+	// Initialize values needed to form NTP request
+	// (see URL above for details on the packets)
+	packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+	packetBuffer[1] = 0;     // Stratum, or type of clock
+	packetBuffer[2] = 6;     // Polling Interval
+	packetBuffer[3] = 0xEC;  // Peer Clock Precision
+	// 8 bytes of zero for Root Delay & Root Dispersion
+	packetBuffer[12] = 49;
+	packetBuffer[13] = 0x4E;
+	packetBuffer[14] = 49;
+	packetBuffer[15] = 52;
+	// all NTP fields have been given values, now
+	// you can send a packet requesting a timestamp:                 
+	Udp.beginPacket(address, 123); //NTP requests are to port 123
+	Udp.write(packetBuffer, NTP_PACKET_SIZE);
+	Udp.endPacket();
+}
 
 void loop() {
 
 	Serial.println("\nMain Loop");
 
 
+	float preassure;
+	if (preassureSensorAviable == true)
+	{
+		preassure = readPreassureFromSensor();
+	}
+	else
+	{
+		preassure = -1;
+	}
 
-	float preassure = readPreassureFromSensor();
 	writePreassureToDatabase(preassure);
 
 	//syncTimeFromWeb();
