@@ -6,16 +6,23 @@
 #include <Arduino.h>
 
 #include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
+#include <Adafruit_BMP085_U.h>
+#include <TimeLib.h>
+
 
 //WIFI-AccesDefinition
-//const char* ssid = "kartoffelsalat";
-//const char* password = "dosenfutterdosenfutter";
+const char* ssid = "kartoffelsalat";
+const char* password = "dosenfutterdosenfutter";
+
+//const char* ssid = "ASUS";
+//const char* password = "5220468835767";
 
 //END_WIFI-AccesDefinition
 
-const char* ssid = "ASUS";
-const char* password = "5220468835767";
+Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
+
 
 String m_dayOfWeek;
 int m_day;
@@ -61,11 +68,14 @@ void setup() {
 
 	m_numberStorage.init(Serial);
 
-   setupWifi();
+	setupWifi();
 
+	setupBmp180();
+
+	
 }
 
-void setupWifi() 
+void setupWifi()
 {
 	Serial.print("Connecting to ");
 	Serial.print(ssid);
@@ -73,19 +83,19 @@ void setupWifi()
 	WiFi.mode(WIFI_STA);
 
 	bool retCode = WiFi.begin(ssid, password);
-	
+
 	Serial.print("\nWifi begin:" + retCode);
 
 
 	// (WiFi.status() != WL_CONNECTED) 
 	//{
-		delay(500);
-		
-		//Serial.print(".");
-		Serial.print("\nWiFi-Status: ");
-		Serial.print(WiFi.status());
-		Serial.print("\nWiFi connected, IP address: ");
-		Serial.println(WiFi.localIP());
+	delay(500);
+
+	//Serial.print(".");
+	Serial.print("\nWiFi-Status: ");
+	Serial.print(WiFi.status());
+	Serial.print("\nWiFi connected, IP address: ");
+	Serial.println(WiFi.localIP());
 	//}
 	Serial.print("\nWiFi connected, IP address: ");
 	Serial.println(WiFi.localIP());
@@ -93,17 +103,47 @@ void setupWifi()
 
 }
 
+int setupBmp180()
+{
+	Serial.println("\ntry to init preassure sensor");
+
+	/* Initialise the sensor */
+	if (!bmp.begin())
+	{
+		/* There was a problem detecting the BMP085 ... check your connections */
+		Serial.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
+
+		return -1;
+	}
+	return 0;
+}
+
+float readPreassureFromSensor()
+{
+
+	/* Get a new sensor event */
+	sensors_event_t event;
+	bmp.getEvent(&event);
+
+	/* Display the results (barometric pressure is measure in hPa) */
+	float preassure = event.pressure;
+	Serial.print("\nread preassure from sensor:");
+	Serial.print(preassure);
+
+	return  preassure;
+}
+
 void syncTimeFromWeb()
 {
 	WiFiClient client;
-	while (!!!client.connect("google.com", 80)) 
+	while (!!!client.connect("google.com", 80))
 	{
 		Serial.println("connection failed, retrying...");
 	}
 
 	client.print("HEAD / HTTP/1.1\r\n\r\n");
 
-	while (!!!client.available()) 
+	while (!!!client.available())
 	{
 		yield();
 	}
@@ -124,10 +164,10 @@ void syncTimeFromWeb()
 		Serial.print(dateLine);
 
 		//Date: Thu, 22 Dec 2016 21:10:43 
-		
+
 		int index2 = dateLine.indexOf(" ");
-		
-		String nextString = dateLine.substring(index2+1);
+
+		String nextString = dateLine.substring(index2 + 1);
 		index2 = nextString.indexOf(",");
 		String dayOfWeek = nextString.substring(0, index2);
 		nextString = nextString.substring(index2 + 2);
@@ -165,6 +205,8 @@ void syncTimeFromWeb()
 		Serial.print("\nminute: " + minute);
 
 
+		//setTime(hour, minute, )
+
 		m_dayOfWeek = dayOfWeek;
 		m_day = day.toInt();
 		m_month = month;
@@ -174,9 +216,9 @@ void syncTimeFromWeb()
 		{
 			m_hour = 0;
 		}
-		
+
 		m_minute = minute.toInt();
-		
+
 	}
 
 }
@@ -206,7 +248,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 			  vertShiftAdd = 3;
 
 			  Serial.println("print number on device 0");
-			   /*
+			  /*
 			  ledMatrix.sendByte(device, 1 + vertShift1, numberAsArray[0] << horShift1);
 			  ledMatrix.sendByte(device, 2 + vertShift1, numberAsArray[1] << horShift1);
 			  ledMatrix.sendByte(device, 3 + vertShift1, numberAsArray[2] << horShift1);
@@ -234,7 +276,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 				  if (number < 10)
 				  {
 					  firstPart = "0";
-					 
+
 					  secondPart = numberString.substring(0, 1);
 					  Serial.println("\nnumber last: ");
 					  Serial.println(secondPart);
@@ -273,7 +315,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 
 			  break;
 	}
-	
+
 	case 2:
 	case 3:
 	{
@@ -335,7 +377,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 				  {
 					  finalArray[i + (vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
 				  }
-				  
+
 
 				  numberAsArray = m_numberStorage.getNumber(secondPart.toInt(), degree);
 				  for (int i = 0; i < 5; i++)
@@ -347,14 +389,14 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 
 			  break;
 	}
-	
+
 
 
 	default:
 
 		break;
 	}
-	
+
 	/*
 
 	int finalArray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -363,71 +405,71 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 
 	if (number < 9 & fillZeroes == false)
 	{
-		numberAsArray = m_numberStorage.getNumber(number, degree);
+	numberAsArray = m_numberStorage.getNumber(number, degree);
 
-		for (int i = 0; i < 5; i++)
-		{
-			finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
-		}
+	for (int i = 0; i < 5; i++)
+	{
+	finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
+	}
 	}
 	else
 	{
-		String numberString = String(number);
-		String firstPart, secondPart;
+	String numberString = String(number);
+	String firstPart, secondPart;
 
-		if (degree == 0)
-		{
-			//check if we have to add a leading zero
-			if (number < 9)
-			{
-				firstPart = "0";
-			}
-			else
-			{
-				firstPart = numberString.substring(0, 1);
-				Serial.println("\nnumber first: ");
-				Serial.println(firstPart);
-			}
-			
+	if (degree == 0)
+	{
+	//check if we have to add a leading zero
+	if (number < 9)
+	{
+	firstPart = "0";
+	}
+	else
+	{
+	firstPart = numberString.substring(0, 1);
+	Serial.println("\nnumber first: ");
+	Serial.println(firstPart);
+	}
 
-			secondPart = numberString.substring(1, 2);
-			Serial.println("\nnumber last: ");
-			Serial.println(secondPart);
-		}
-		else if (degree == 180)
-		{
-			//check if we have to add a leading zero
-			if (number < 9)
-			{
-				firstPart = "0";
-			}
-			else
-			{
-				firstPart = numberString.substring(1, 2);
-				Serial.println("\nnumber first: ");
-				Serial.println(firstPart);
-			}
 
-			secondPart = numberString.substring(0, 1);
-			Serial.println("\nnumber last: ");
-			Serial.println(secondPart);
-		}
-	
+	secondPart = numberString.substring(1, 2);
+	Serial.println("\nnumber last: ");
+	Serial.println(secondPart);
+	}
+	else if (degree == 180)
+	{
+	//check if we have to add a leading zero
+	if (number < 9)
+	{
+	firstPart = "0";
+	}
+	else
+	{
+	firstPart = numberString.substring(1, 2);
+	Serial.println("\nnumber first: ");
+	Serial.println(firstPart);
+	}
 
-		numberAsArray = m_numberStorage.getNumber(firstPart.toInt(), degree);
-		for (int i = 0; i < 5; i++)
-		{
-			finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
-		}
+	secondPart = numberString.substring(0, 1);
+	Serial.println("\nnumber last: ");
+	Serial.println(secondPart);
+	}
 
-		
 
-		numberAsArray = m_numberStorage.getNumber(secondPart.toInt(), degree);
-		for (int i = 0; i < 5; i++)
-		{
-			finalArray[i + (vertShiftAdd - vertShift2)] += numberAsArray[i] << (horShiftAdd - horShift2);
-		}
-				
+	numberAsArray = m_numberStorage.getNumber(firstPart.toInt(), degree);
+	for (int i = 0; i < 5; i++)
+	{
+	finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShiftAdd - horShift1);
+	}
+
+
+
+	numberAsArray = m_numberStorage.getNumber(secondPart.toInt(), degree);
+	for (int i = 0; i < 5; i++)
+	{
+	finalArray[i + (vertShiftAdd - vertShift2)] += numberAsArray[i] << (horShiftAdd - horShift2);
+	}
+
 	}
 	*/
 
@@ -439,7 +481,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 		}
 	}
 
-	if (animation == true & (m_oldFinalArray[device][0]!= -1))
+	if (animation == true & (m_oldFinalArray[device][0] != -1))
 	{
 		//check if array has changed
 		bool equal = true;
@@ -454,7 +496,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 		{
 			return;
 		}
-		
+
 		//clear column
 		int currentColBit = 1;
 		for (int j = 0; j < 8; j++)
@@ -470,7 +512,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 			//Serial.println("\ncurrentColBit:");
 			//Serial.println(currentColBit);
 		}
-		
+
 		//disp new values
 		for (int i = 0; i < 8; i++)
 		{
@@ -513,7 +555,7 @@ void displayTime()
 	horShift2 = 5;
 	vertShift2 = 1;
 
-	
+
 	displayNumber(m_minute, 0, horShift1, vertShift1, horShift2, vertShift2, true, NULL, true);
 
 }
@@ -548,101 +590,38 @@ void displayDate()
 
 }
 
+void writePreassureToDatabase(float preassure)
+{
+	Serial.println("\ntry to write preassure to the database");
+	
+	HTTPClient http;
+	http.begin("http://web568.lenny.servertools24.de/ledMatrixWooden/preassureReceive.php");
+	http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	String htmlPostString;
+	
+	htmlPostString.concat("timeStamp=42&preassure=");
+	htmlPostString.concat(String(preassure));
+	
+	http.POST(htmlPostString);
+	http.writeToStream(&Serial);
+	http.end();
+}
+
 
 void loop() {
-		
-	syncTimeFromWeb();
 
-
-//	ledMatrix.clear();
-	//ledMatrix.commit();
-
-	displayTime();
-	displayDate();
-
-	/*
-	if (x == 0)
-	{
-		ledMatrix.clear();
-		ledMatrix.commit();
-		
-		int test = m_numberStorage.readBinaryString("11001101");
+	Serial.println("\nMain Loop");
 
 
 
+	float preassure = readPreassureFromSensor();
+	writePreassureToDatabase(preassure);
 
-		ledMatrix.sendByte(1, 1, p1);
-		ledMatrix.sendByte(1, 2, p2);
-		ledMatrix.sendByte(1, 3, p3);
-		ledMatrix.sendByte(1, 4, p4);
-		ledMatrix.sendByte(1, 5, p5);
-		
-		
-	}
-	*/
-	
-	Serial.println("\ntest print");
-	/*
-	displayNumber(0, 0, 3, 2);
-	displayNumber(1, 1, 3, 2);
-	displayNumber(2, 2, 0, 3);
-	displayNumber(3, 3, 3, 2);
-	*/
+	//syncTimeFromWeb();
 
-	/*
-	int *numberAsArray= m_numberStorage.getNumber(number, 180);
-	number++;
 
-	Serial.println(numberAsArray[0]);
-	Serial.println(numberAsArray[1]);
-	Serial.println(numberAsArray[2]);
-	Serial.println(numberAsArray[3]);
-	Serial.println(numberAsArray[4]);
-	
-	
-	for (int x = 0; x < 4; x++)
-	{
-
-	ledMatrix.sendByte(x, 1, numberAsArray[0]);
-	ledMatrix.sendByte(x, 2, numberAsArray[1]);
-	ledMatrix.sendByte(x, 3, numberAsArray[2]);
-	ledMatrix.sendByte(x, 4, numberAsArray[3]);
-	ledMatrix.sendByte(x, 5, numberAsArray[4]);
-
-	}
-	*/
-	/*
-
-	ledMatrix.sendByte(1, 1, 1);
-	ledMatrix.sendByte(2, 2, 2);
-	ledMatrix.sendByte(3, 3, 3);
-	ledMatrix.sendByte(4, 4, 4);
-	ledMatrix.sendByte(1, 5, 5);
-
-	ledMatrix.commit();
-	*/
-	/*
-	numberAsArray = m_numberStorage.getNumber(number, 90);
-	number++;
-
-	
-	delay(3000);
-
-	ledMatrix.clear();
-	ledMatrix.commit();
-
-	ledMatrix.sendByte(2, 1, numberAsArray[0]);
-	ledMatrix.sendByte(2, 2, numberAsArray[1]);
-	ledMatrix.sendByte(2, 3, numberAsArray[2]);
-
-	*/
-	
-	/*
-	ledMatrix.clear();
-	ledMatrix.scrollTextLeft();
-	ledMatrix.drawText();
-	ledMatrix.commit();
-	*/
+	//	displayTime();
+	//	displayDate();
 
 
 	x++;
@@ -659,10 +638,10 @@ void loop() {
 
 	}
 
- delay(6000);
+	delay(6000);
 
-  //yield();
+	//yield();
 
-  
+
 
 }

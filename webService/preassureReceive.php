@@ -21,7 +21,9 @@ or die("Auswahl der Datenbank fehlgeschlagen");
 
 //$db_erg = mysql_query( $sql );
 
-$eintrag = "INSERT INTO raspiGPScar
+//(time, preassure)
+
+$eintrag = "INSERT INTO dotMatrixWeather
 (time, preassure)
 VALUES
 ('$timeStamp', '$preassure')";
@@ -32,8 +34,11 @@ $eintragen = mysql_query($eintrag);
 if($eintragen == true)
    {
 //echo '<b>';   
-echo "Eintrag war erfolgreich. Eingetragener rapiTimestamp:";
-echo $timeStampRapi;
+echo "Eintrag war erfolgreich. Eingetragener timestamp:";
+echo $timeStamp;
+echo "Eingetragener Druck:";
+echo $preassure;
+
 //echo '</b>';
    }
 else
