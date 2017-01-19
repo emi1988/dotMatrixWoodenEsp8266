@@ -10,6 +10,8 @@
 #include <Adafruit_BMP085_U.h>
 #include <TimeLib.h>
 #include <WiFiUdp.h>
+#include <ArduinoJson.h>
+
 
 
 //WIFI-AccesDefinition
@@ -38,8 +40,13 @@ int m_year;
 int m_hour;
 int m_minute;
 
+long lastBlinkTime = 0;
+
+DynamicJsonBuffer jsonBuffer;
+
 
 bool preassureSensorAviable = false;
+bool jsonDataAviable = false;
 
 int m_oldFinalArray[4][8];
 
@@ -54,7 +61,6 @@ int m_oldFinalArray[4][8];
 #define CS_PIN 15
 LedMatrix ledMatrix = LedMatrix(NUMBER_OF_DEVICES, CS_PIN);
 numberStorage m_numberStorage = numberStorage();
-
 
 int x = 0;
 int number = 0;
@@ -115,6 +121,12 @@ void setupWifi()
 int setupBmp180()
 {
 	Serial.println("\ntry to init preassure sensor");
+	/*
+	Connect SCL to analog 5
+	Connect SDA to analog 4
+	Connect VDD to 3.3V DC
+	Connect GROUND to common ground
+	*/
 
 	/* Initialise the sensor */
 	if (!bmp.begin())
@@ -302,33 +314,29 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 					  firstPart = "0";
 
 					  secondPart = numberString.substring(0, 1);
-					  Serial.println("\nnumber last: ");
-					  Serial.println(secondPart);
+					  //Serial.println("\nnumber last: ");
+					  //Serial.println(secondPart);
 
 				  }
 				  else
 				  {
 					  firstPart = numberString.substring(0, 1);
-					  Serial.println("\nnumber first: ");
-					  Serial.println(firstPart);
+					  //Serial.println("\nnumber first: ");
+					  //Serial.println(firstPart);
 
 					  secondPart = numberString.substring(1, 2);
-					  Serial.println("\nnumber last: ");
-					  Serial.println(secondPart);
+					  //Serial.println("\nnumber last: ");
+					  //Serial.println(secondPart);
 				  }
 
-
-
-
-
+				  
 				  numberAsArray = m_numberStorage.getNumber(firstPart.toInt(), degree);
 				  for (int i = 0; i < 5; i++)
 				  {
 					  finalArray[i + (vertShiftAdd - vertShift1)] = numberAsArray[i] << (horShift1);
 				  }
 
-
-
+				  
 				  numberAsArray = m_numberStorage.getNumber(secondPart.toInt(), degree);
 				  for (int i = 0; i < 5; i++)
 				  {
@@ -347,7 +355,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 			  horShiftAdd = 5;
 			  //vertShiftAdd = 0;
 
-			  Serial.println("print number on device 2");
+			  //Serial.println("print number on device 2");
 			  numberAsArray = m_numberStorage.getNumber(number, 0);
 
 			  /*
@@ -362,7 +370,7 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 			  {
 				  numberAsArray = m_numberStorage.getNumber(number, degree);
 
-				  Serial.println("print single number without zeros");
+				//  Serial.println("print single number without zeros");
 
 				  for (int i = 0; i < 5; i++)
 				  {
@@ -380,18 +388,18 @@ void displayNumber(int number, int device, int horShift1, int vertShift1, int ho
 					  firstPart = "0";
 
 					  secondPart = numberString.substring(0, 1);
-					  Serial.println("\nnumber last: ");
-					  Serial.println(secondPart);
+					//  Serial.println("\nnumber last: ");
+					 // Serial.println(secondPart);
 				  }
 				  else
 				  {
 					  firstPart = numberString.substring(0, 1);
-					  Serial.println("\nnumber first: ");
-					  Serial.println(firstPart);
+					  //Serial.println("\nnumber first: ");
+					 //Serial.println(firstPart);
 
 					  secondPart = numberString.substring(1, 2);
-					  Serial.println("\nnumber last: ");
-					  Serial.println(secondPart);
+					  //Serial.println("\nnumber last: ");
+					  //Serial.println(secondPart);
 
 				  }
 
@@ -494,10 +502,10 @@ void displayTime()
 	int vertShift1 = 0;
 	int horShift2 = 4;
 	int vertShift2 = 1;
-
+		
 	int addAray[8] = { 0, 0, 1, 0, 1, 0, 0, 0 };
 
-	displayNumber(m_hour, 3, horShift1, vertShift1, horShift2, vertShift2, true, addAray, true);
+	displayNumber(hour(), 3, horShift1, vertShift1, horShift2, vertShift2, true, addAray, true);
 
 	horShift1 = 1;
 	vertShift1 = 0;
@@ -505,7 +513,7 @@ void displayTime()
 	vertShift2 = 1;
 
 
-	displayNumber(m_minute, 0, horShift1, vertShift1, horShift2, vertShift2, true, NULL, true);
+	displayNumber(minute(), 0, horShift1, vertShift1, horShift2, vertShift2, true, NULL, true);
 
 }
 
@@ -517,11 +525,20 @@ void displayDate()
 	int horShift2 = 4;
 	int vertShift2 = 1;
 
-	int addAray[8] = { 0, 0, 0, 0, 0, 1, 0, 0 };
+	long blinkIntervall = 2;
 
-	displayNumber(m_day, 2, horShift1, vertShift1, horShift2, vertShift2, true, addAray, true);
+	int addAray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	if (now() > lastBlinkTime + blinkIntervall)
+	{
+		lastBlinkTime = now();
+		 addAray[5] = 1;
+	}
 
+	
 
+	displayNumber(day(), 2, horShift1, vertShift1, horShift2, vertShift2, true, addAray, true);
+
+	/*
 	String monthArray[13] = { "null", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
 	int currentMonth = 0;
@@ -533,8 +550,8 @@ void displayDate()
 		}
 		currentMonth++;
 	}
-
-	displayNumber(currentMonth, 1, horShift1, vertShift1, horShift2, vertShift2, true, NULL, true);
+	*/
+	displayNumber(month(), 1, horShift1, vertShift1, horShift2, vertShift2, true, NULL, true);
 
 
 }
@@ -566,6 +583,98 @@ void writePreassureToDatabase(float preassure)
 
 	}
 }
+
+void readPreassureFromDatabase()
+{
+	Serial.println("\ntry to read preassure from the database");
+
+	//first check if time was already set
+	if (timeStatus() != timeNotSet)
+	{
+		HTTPClient http;
+		http.begin("http://web568.lenny.servertools24.de/ledMatrixWooden/preassureRead.php");
+		http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+		
+		//time intervall for diplaying preassure data
+		int intervall = 5;
+
+		//seconds for all intervalls
+		int sinceTime = (intervall * 60) * 16;
+
+		sinceTime = now() - sinceTime;
+				
+		String htmlPostString;
+
+		htmlPostString.concat("sinceTime=");
+		htmlPostString.concat(sinceTime);
+
+
+		int httpCode = http.POST(htmlPostString);
+		// httpCode will be negative on error
+		if (httpCode > 0) {
+			// HTTP header has been send and Server response header has been handled
+			Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+
+			// file found at server
+			if (httpCode == HTTP_CODE_OK) {
+				Serial.println("read payload: ");
+				//http.writeToStream(&Serial);
+								
+				String payload = http.getString();
+				Serial.println(payload);
+
+				JsonObject& rootJsonObject = jsonBuffer.parseObject(payload);
+
+				// Test if parsing succeeds.
+				if (!rootJsonObject.success()) {
+					Serial.println("parse JSON-Object FAILED");
+					return;
+				}
+				else
+				{
+					Serial.println("parse JSON-Object SUCCES");
+					jsonDataAviable = true;
+					double preassure = rootJsonObject["preassure"][0];
+
+					Serial.println("read preassure value:");
+					Serial.println(preassure);
+				}
+
+			}
+		}
+		else {
+			Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+		}
+
+		http.end();
+	}
+	else
+	{
+		Serial.println("\ndid not write to database, because time was not snced yet");
+
+	}
+}
+
+void dispPreassureDiagramm()
+{
+
+	if (jsonDataAviable)
+	{
+		// first get min and max preassure in the data-set
+
+		int count = 0;
+		while (true)
+		{
+			
+
+			delay(10);			
+		}
+	}
+	else
+	{
+	}
+}
+
 
 /*-------- NTP code ----------*/
 
@@ -636,11 +745,14 @@ void loop() {
 
 	writePreassureToDatabase(preassure);
 
+	readPreassureFromDatabase();
+
+
 	//syncTimeFromWeb();
 
 
-	//	displayTime();
-	//	displayDate();
+	displayTime();
+	displayDate();
 
 
 	x++;

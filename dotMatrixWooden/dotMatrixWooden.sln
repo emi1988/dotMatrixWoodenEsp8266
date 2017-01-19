@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dotMatrixWooden", "dotMatrixWooden.vcxproj", "{01B56F4E-D0CB-4E53-B56C-1B71623AA64F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TimeNTP_ESP8266WiFi", "..\..\..\..\..\..\Documents\Arduino\My Examples\TimeNTP_ESP8266WiFi\TimeNTP_ESP8266WiFi.vcxproj", "{5D7A27ED-440B-4652-A2D5-F3EA3291135B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -15,6 +17,10 @@ Global
 		{01B56F4E-D0CB-4E53-B56C-1B71623AA64F}.Debug|Win32.Build.0 = Debug|Win32
 		{01B56F4E-D0CB-4E53-B56C-1B71623AA64F}.Release|Win32.ActiveCfg = Release|Win32
 		{01B56F4E-D0CB-4E53-B56C-1B71623AA64F}.Release|Win32.Build.0 = Release|Win32
+		{5D7A27ED-440B-4652-A2D5-F3EA3291135B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5D7A27ED-440B-4652-A2D5-F3EA3291135B}.Debug|Win32.Build.0 = Debug|Win32
+		{5D7A27ED-440B-4652-A2D5-F3EA3291135B}.Release|Win32.ActiveCfg = Release|Win32
+		{5D7A27ED-440B-4652-A2D5-F3EA3291135B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
