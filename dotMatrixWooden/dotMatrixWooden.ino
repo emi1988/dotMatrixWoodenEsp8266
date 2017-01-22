@@ -15,11 +15,12 @@
 
 
 //WIFI-AccesDefinition
-const char* ssid = "kartoffelsalat";
-const char* password = "dosenfutterdosenfutter";
+//const char* ssid = "kartoffelsalat";
+//const char* password = "dosenfutterdosenfutter";
 
 // NTP Servers:
-IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+//IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+IPAddress timeServer(216, 239, 35, 0); // 	time1.google.com
 const int timeZone = 1;     // Central European Time
 
 WiFiUDP Udp;
@@ -42,12 +43,11 @@ int m_minute;
 
 long lastBlinkTime = 0;
 
-DynamicJsonBuffer jsonBuffer;
-
 
 bool preassureSensorAviable = false;
 bool jsonDataAviable = false;
 
+//saves the old array
 int m_oldFinalArray[4][8];
 
 
@@ -84,7 +84,8 @@ void setup() {
 
 	m_numberStorage.init(Serial);
 
-	setupWifi();
+	scanWifiNetworks();
+	//setupWifi();
 
 	setupBmp180();
 
@@ -92,16 +93,79 @@ void setup() {
 	
 }
 
-void setupWifi()
+void scanWifiNetworks()
 {
-	Serial.print("Connecting to ");
+	// Set WiFi to station mode and disconnect from an AP if it was previously connected
+	WiFi.mode(WIFI_STA);
+	WiFi.disconnect();
+	delay(100);
+
+	String ssidList[] = { "ASUS", "kartoffelsalat" };
+	String pwList[] = { "5220468835767", "dosenfutterdosenfutter" };
+
+
+	Serial.println("scan start");
+
+	// WiFi.scanNetworks will return the number of networks found
+	int n = WiFi.scanNetworks();
+	Serial.println("scan done");
+	if (n == 0)
+		Serial.println("no networks found");
+	else
+	{
+		Serial.print(n);
+		Serial.println(" networks found");
+		for (int i = 0; i < n; ++i)
+		{
+			// Print SSID and RSSI for each network found
+			Serial.print(i + 1);
+			Serial.print(": ");
+			Serial.print(WiFi.SSID(i));
+			Serial.print(" (");
+			Serial.print(WiFi.RSSI(i));
+			Serial.print(")");
+			Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
+			delay(10);
+		}
+
+		int numberOfSsids = sizeof(ssidList) / sizeof(ssidList[0]);
+
+		//check if one ssid is in our list
+
+		Serial.println("check list for known SSIDs");
+
+		for (int i = 0; i < n; ++i)
+		{
+			for (int j = 0; j < numberOfSsids; j++)
+			{
+				if (WiFi.SSID(i).compareTo(ssidList[j]) == 0)
+				{
+					Serial.println("found known SSID:");
+					Serial.println(ssidList[j]);
+
+					const char* ssid = ssidList[j].c_str();
+					const char* pw = pwList[j].c_str();
+					
+					setupWifi(ssid, pw);
+
+					return;
+				}
+			}
+		}
+	}
+
+}
+
+void setupWifi(const char * ssid, const char* password)
+{
+	Serial.println("Connecting to ");
 	Serial.print(ssid);
 
 	WiFi.mode(WIFI_STA);
 
 	bool retCode = WiFi.begin(ssid, password);
 
-	Serial.print("\nWifi begin:" + retCode);
+	Serial.println("Wifi begin:" + retCode);
 
 
 	while (WiFi.status() != WL_CONNECTED) {
@@ -109,11 +173,11 @@ void setupWifi()
 		Serial.print(".");
 	}
 
-	Serial.print("IP address assigned by DHCP: ");
-	Serial.println(WiFi.localIP());
+	Serial.println("IP address assigned by DHCP: ");
+	Serial.print(WiFi.localIP());
 
 	//Serial.print(".");
-	Serial.print("\nWiFi-Status: ");
+	Serial.println("WiFi-Status: ");
 	Serial.print(WiFi.status());
 	
 }
@@ -142,7 +206,6 @@ int setupBmp180()
 
 void setupNTPSync()
 {
-
 	Serial.println("Starting UDP");
 	Udp.begin(localPort);
 	Serial.print("Local port: ");
@@ -528,15 +591,27 @@ void displayDate()
 	long blinkIntervall = 2;
 
 	int addAray[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+
+	Serial.println("now: ");
+	Serial.println(now());
+
+	Serial.println("lastBlinkTime: ");
+	Serial.println(lastBlinkTime);
+
+
+	Serial.println("blinkIntervall: ");
+	Serial.println(blinkIntervall);	
+
 	if (now() > lastBlinkTime + blinkIntervall)
 	{
+		Serial.println("blink");
+		
 		lastBlinkTime = now();
-		 addAray[5] = 1;
-	}
+		addAray[5] = 1;
+	}	
 
-	
-
-	displayNumber(day(), 2, horShift1, vertShift1, horShift2, vertShift2, true, addAray, true);
+	displayNumber(day(), 2, horShift1, vertShift1, horShift2, vertShift2, true, addAray, false);
 
 	/*
 	String monthArray[13] = { "null", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
@@ -595,7 +670,7 @@ void readPreassureFromDatabase()
 		http.begin("http://web568.lenny.servertools24.de/ledMatrixWooden/preassureRead.php");
 		http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 		
-		//time intervall for diplaying preassure data
+		//time intervall for diplaying preassure data in minutes
 		int intervall = 5;
 
 		//seconds for all intervalls
@@ -622,9 +697,13 @@ void readPreassureFromDatabase()
 								
 				String payload = http.getString();
 				Serial.println(payload);
+				Serial.println("before delay");
+				delay(1000);
+				Serial.println("after delay");
+				DynamicJsonBuffer jsonBuffer;
 
 				JsonObject& rootJsonObject = jsonBuffer.parseObject(payload);
-
+				Serial.println("after jsonparse");
 				// Test if parsing succeeds.
 				if (!rootJsonObject.success()) {
 					Serial.println("parse JSON-Object FAILED");
@@ -638,6 +717,12 @@ void readPreassureFromDatabase()
 
 					Serial.println("read preassure value:");
 					Serial.println(preassure);
+
+					size_t amountOfValues = (int) rootJsonObject["preassure"].size();
+
+					Serial.println("amount of values:");
+					Serial.println(amountOfValues);
+
 				}
 
 			}
@@ -722,7 +807,7 @@ void sendNTPpacket(IPAddress &address)
 	packetBuffer[14] = 49;
 	packetBuffer[15] = 52;
 	// all NTP fields have been given values, now
-	// you can send a packet requesting a timestamp:                 
+	// you can send a packet requesting a timestamp:                
 	Udp.beginPacket(address, 123); //NTP requests are to port 123
 	Udp.write(packetBuffer, NTP_PACKET_SIZE);
 	Udp.endPacket();
@@ -732,6 +817,7 @@ void loop() {
 
 	Serial.println("\nMain Loop");
 
+	
 
 	float preassure;
 	if (preassureSensorAviable == true)
@@ -747,7 +833,7 @@ void loop() {
 
 	readPreassureFromDatabase();
 
-
+	
 	//syncTimeFromWeb();
 
 
